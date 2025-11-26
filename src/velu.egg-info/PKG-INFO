@@ -1,0 +1,84 @@
+Metadata-Version: 2.4
+Name: velu
+Version: 0.0.1
+Summary: VELU core: API + worker scaffolding
+Author: Your Name
+License-Expression: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
+# 🧠 Velu — Task Orchestrator & Metrics API
+
+FastAPI-based task queue, routing, and policy evaluation system with Prometheus monitoring.
+
+![CI](https://github.com/Manishadha/velu/actions/workflows/ci.yml/badge.svg)
+
+
+Self-hosted, multi-agent AI pipeline that plans → codes → tests → secures → builds → deploys → monitors.
+
+---
+
+
+
+### Local (for development)
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+bash scripts/test.sh  # all tests should pass
+
+### 🔐 Prometheus basic auth
+
+Prometheus scrapes `/metrics` through Caddy with basic auth.
+
+1. Copy the example and set your own password (plaintext, single line):
+   ```bash
+   cp monitoring/prom_basic_pass.txt.example monitoring/prom_basic_pass.txt
+   echo "my-SUPER-strong-password" > monitoring/prom_basic_pass.txt
+
+# Smoke test: enqueue 4 tasks, then poll results & check Prometheus
+API=127.0.0.1:8000 KEY=devkey123
+
+jid_plan=$(curl -s -X POST http://$API/tasks -H 'content-type: application/json' -H "x-api-key: $KEY" \
+  --data-binary '{"task":"plan","payload":{"goal":"hello world"}}' | jq -r .job_id)
+jid_analyze=$(curl -s -X POST http://$API/tasks -H 'content-type: application/json' -H "x-api-key: $KEY" \
+  --data-binary '{"task":"analyze","payload":{"text":"some logs"}}' | jq -r .job_id)
+jid_execute=$(curl -s -X POST http://$API/tasks -H 'content-type: application/json' -H "x-api-key: $KEY" \
+  --data-binary '{"task":"execute","payload":{"cmd":"echo hi"}}' | jq -r .job_id)
+jid_report=$(curl -s -X POST http://$API/tasks -H 'content-type: application/json' -H "x-api-key: $KEY" \
+  --data-binary '{"task":"report","payload":{"title":"Build report","data":{"ok":true}}}' | jq -r .job_id)
+
+echo "plan=$jid_plan analyze=$jid_analyze execute=$jid_execute report=$jid_report"
+
+for jid in "$jid_plan" "$jid_analyze" "$jid_execute" "$jid_report"; do
+  for i in {1..12}; do
+    out=$(curl -s "http://$API/results/$jid")
+    jq -e '.item.status=="done"' >/dev/null <<<"$out" && echo "$out" | jq '.item|{id,status,task,result}' && break
+    sleep 0.5
+  done
+done
+
+curl -s 'http://localhost:9090/api/v1/targets' | jq '.data.activeTargets[]? | {scrapeUrl,health,lastError}'
+
+Auto-merge smoke test
+# touch
+# touch Tue Nov  4 12:41:11 PM CET 2025
+# poke Tue Nov  4 01:12:39 PM CET 2025
+# poke Tue Nov  4 01:19:11 PM CET 2025
+# poke Tue Nov  4 01:37:11 PM CET 2025
+# poke Tue Nov  4 01:48:15 PM CET 2025
+# poke Tue Nov  4 02:15:35 PM CET 2025
+# poke Tue Nov  4 02:16:28 PM CET 2025
+# poke Tue Nov  4 02:40:58 PM CET 2025
+# poke Tue Nov  4 02:55:06 PM CET 2025
+# poke Tue Nov  4 03:12:59 PM CET 2025
+# poke Tue Nov  4 03:21:05 PM CET 2025
+# poke Tue Nov  4 03:34:00 PM CET 2025
+# poke Tue Nov  4 07:20:16 PM CET 2025
+# poke Wed Nov  5 09:53:29 AM CET 2025
+# poke Wed Nov  5 09:54:50 AM CET 2025
+# poke Wed Nov  5 10:21:13 AM CET 2025
+# poke Wed Nov  5 10:44:56 AM CET 2025
+# poke Wed Nov  5 11:30:15 AM CET 2025
+# poke Wed Nov  5 12:38:22 PM CET 2025
